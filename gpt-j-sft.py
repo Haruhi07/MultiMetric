@@ -4,59 +4,33 @@ import shutil
 import argparse
 
 from accelerate import Accelerator
-from datasets import load_from_disk
+from datasets import load_dataset
 from transformers import (
     AutoModelForSeq2SeqLM,
     AutoModelForCausalLM,
     TrainingArguments,
     AutoTokenizer,
     HfArgumentParser,
+    DataCollatorForLanguageModeling
 )
 
 from dataclasses import dataclass
 from enum import Enum
+from tqdm import tqdm
 from typing import Any, Dict, List, Literal, Optional
 
 from trl import (
-    DPOConfig,
-    DPOTrainer,
+    SFTConfig,
+    SFTTrainer,
     ModelConfig,
     TrlParser,
     get_kbit_device_map,
     get_peft_config,
     get_quantization_config,
 )
+from trl.trainer import ConstantLengthDataset
 from trl.trainer.utils import SIMPLE_CHAT_TEMPLATE
 from peft import AutoPeftModelForCausalLM, LoraConfig
-
-
-def get_labeled_dataset(dataset_path):
-    score_train_dataset = load_from_disk(f"{dataset_path}/train")#.select(range(100))
-    score_test_dataset = load_from_disk(f"{dataset_path}/test")#.select(range(100))
-    def set_chosen_and_rejected(data):
-        if data["score1"] > data["score2"]:
-            chosen = data["completion1"]
-            rejected = data["completion2"]
-        else:
-            chosen = data["completion2"]
-            rejected = data["completion1"]
-        return {
-            "prompt": data["query"],
-            "chosen": chosen,
-            "rejected": rejected
-        }
-    
-    train_dataset = score_train_dataset.map(
-        set_chosen_and_rejected, 
-        num_proc=4, 
-        remove_columns=score_train_dataset.column_names
-    )
-    test_dataset = score_test_dataset.map(
-        set_chosen_and_rejected, 
-        num_proc=4, 
-        remove_columns=score_test_dataset.column_names
-    )
-    return train_dataset, test_dataset
 
 @dataclass
 class ScriptArguments:
@@ -88,8 +62,27 @@ class ScriptArguments:
     score_dataset: bool = False
 
 
+def chars_token_ratio(dataset, tokenizer, nb_examples=400):
+    """
+    Estimate the average number of characters per token in the dataset.
+    """
+    total_characters, total_tokens = 0, 0
+    for _, example in tqdm(zip(range(nb_examples), iter(dataset)), total=nb_examples):
+        text = prepare_sample_text(example)
+        total_characters += len(text)
+        if tokenizer.is_fast:
+            total_tokens += len(tokenizer(text).tokens())
+        else:
+            total_tokens += len(tokenizer.tokenize(text))
+
+    return total_characters / total_tokens
+
+
+def prepare_sample_text(example):
+        return f"Document: {example['document']}\n\nSummary: {example['summary']}"
+
 def make_parser(subparsers: argparse._SubParsersAction = None):
-    dataclass_types = (ScriptArguments, DPOConfig, ModelConfig)
+    dataclass_types = (ScriptArguments, SFTConfig, ModelConfig)
     if subparsers is not None:
         parser = subparsers.add_parser("dpo", help="Run the DPO training script", dataclass_types=dataclass_types)
     else:
@@ -102,7 +95,6 @@ if __name__ == "__main__":
     script_args, training_args, model_args = parser.parse_args_and_config()
     # remove output_dir if exists
     shutil.rmtree(training_args.output_dir, ignore_errors=True)
-    shutil.rmtree(training_args.logging_dir, ignore_errors=True)
 
     ################
     # Model & Tokenizer
@@ -112,14 +104,15 @@ if __name__ == "__main__":
         torch_dtype=torch.float16,
         device_map="auto",
     )
-    if model_args.model_name_or_path in ["CarperAI/openai_summarize_tldr_sft", "gpt-j-6b-xsum-sft/final_merged_checkpoint"]:
+    if model_args.model_name_or_path == "CarperAI/openai_summarize_tldr_sft":
         tokenizer_name = "EleutherAI/gpt-j-6b"
     else:
         tokenizer_name = model_args.model_name_or_path
     
     tokenizer = AutoTokenizer.from_pretrained(
         tokenizer_name,
-        trust_remote_code=model_args.trust_remote_code,
+        padding="longest",
+        truncation=True,
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -140,21 +133,33 @@ if __name__ == "__main__":
         task_type="CAUSAL_LM",
     )
 
+
     ################
     # Dataset
     ################
-    if script_args.score_dataset:
-        train_dataset, test_dataset = get_labeled_dataset(script_args.dataset_name)
-    else:
-        train_dataset = load_from_disk(f"{script_args.dataset_name}/train")
-        test_dataset = load_from_disk(f"{script_args.dataset_name}/test")
+    dataset = load_dataset(script_args.dataset_name)
+    train_data = dataset[script_args.dataset_train_split].shuffle(seed=42)
+    test_data = dataset[script_args.dataset_test_split]
+    chars_per_token = chars_token_ratio(train_data, tokenizer)
+    
+    train_dataset = ConstantLengthDataset(
+        tokenizer,
+        train_data,
+        formatting_func=prepare_sample_text,
+        seq_length=training_args.max_seq_length,
+    )
+    test_dataset = ConstantLengthDataset(
+        tokenizer,
+        test_data,
+        formatting_func=prepare_sample_text,
+        seq_length=training_args.max_seq_length,
+    )
 
     ################
     # Training
     ################
-    trainer = DPOTrainer(
+    trainer = SFTTrainer(
         model=model,
-        ref_model=None,
         args=training_args,
         peft_config=peft_config,
         train_dataset=train_dataset,
