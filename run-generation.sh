@@ -1,9 +1,5 @@
 #!/bin/sh
 
-export METHOD=mpo
-export STRATEGY=beam6-1+greedy
-export SPLIT=test
-
 python3 sampling_with_different_strategy.py \
     --save_path completions/gpt-j-6b-xsum-dpo/$METHOD-$STRATEGY.csv \
     --decoding_strategy beam6 \
@@ -14,4 +10,4 @@ python3 sampling_with_different_strategy.py \
     --split $SPLIT \
     --max_doc_length 2000 \
     --max_new_tokens 50 \
-    --batch_size 1
+    --batch_size 4

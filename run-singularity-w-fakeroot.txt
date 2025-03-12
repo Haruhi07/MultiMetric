@@ -1,0 +1,1 @@
+singularity shell --nv --fakeroot ../pytorch_25.01-py3.sif
