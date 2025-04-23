@@ -63,13 +63,13 @@ def fix_missing_period(line):
 
 def process_dataset(dataset, tokenizer, max_doc_length, doc_name, summary_name):
     if doc_name == "prompt":
-        system_prompt = "You are a useful AI assistant that helps people to summarize reddit posts. Think first and then summarize the given post into a single sentence."
+        system_prompt = "You are a useful AI assistant that helps people to summarize reddit posts. Summarize the given post into a single sentence:\n\n"
     elif doc_name == "document":
-        system_prompt = "You are a useful AI assistant that helps people to summarize news articles. Think first and then summarize the given article into a single sentence."
+        system_prompt = "You are a useful AI assistant that helps people to summarize news documents. Summarize the given document into a single sentence:\n\n"
     def add_prompt(example):
         doc = example[doc_name].replace("TL;DR:", "").strip()
         ref = example[summary_name]
-        query = f"{system_prompt}\nDocument: {doc}\n<think>\n"
+        query = f"Document: {doc}\n\nSummary: "
         label = tokenizer(ref)["input_ids"]
         input_ids = tokenizer(query, truncation=True)["input_ids"]
         return {
@@ -77,6 +77,10 @@ def process_dataset(dataset, tokenizer, max_doc_length, doc_name, summary_name):
             "query": query,
             "reference": ref,
             "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt
+                },
                 {
                     "role": "user", 
                     "content": query
@@ -151,12 +155,11 @@ if __name__ == "__main__":
     ##########
     # Prepare model and dataset
     ##########
-    if "qwen" in script_args.model_name_or_path.lower():
+    if "qwen" in script_args.model_name_or_path:
         lm = AutoModelForCausalLM.from_pretrained(
             script_args.model_name_or_path, 
             device_map="auto",
-            _attn_implementation_autoset=False,
-            attn_implementation='sdpa', #turn this on for deepseek other wise it only returns quotation marks
+            attn_implementation='flash_attention_2', #open turn this on for deepseek
             torch_dtype=torch.float16,
             low_cpu_mem_usage=True,
         )
@@ -180,13 +183,6 @@ if __name__ == "__main__":
         summary_name = "summary"
 
     dataset = load_dataset(script_args.dataset_name_or_path, split=script_args.split)
-    part = os.environ.get("PART")
-    if part == "1":
-        print("part 1")
-        dataset = dataset.select(range(5000))
-    elif part == "2":
-        print("part 2")
-        dataset = dataset.select(range(5000, len(dataset)))
     prompted_dataset = process_dataset(dataset, tokenizer, script_args.max_doc_length, doc_name, summary_name)
     if script_args.split == "train":
         prompted_dataset = prompted_dataset.select(sample(range(len(prompted_dataset)), 1000))
