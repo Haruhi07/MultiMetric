@@ -1,14 +1,15 @@
 #!/bin/sh
 
+export LD_LIBRARY_PATH=/home/b5e/yuxuan.b5e/.local/lib/python3.12/site-packages/bitsandbytes/:$LD_LIBRARY_PATH
 export PATH=/home/b5e/yuxuan.b5e/.local/bin:$PATH
 
 python3 rl.py \
     --score_dataset $SCORE_DATASET \
-    --output_dir  llama-3b-$ORIGIN-dpo-$DATASET/$METRIC \
-    --dataset_name completions/$ORIGIN/llama-3b-instruct/$DATASET/$METRIC \
-    --run_name llama-3b-$ORIGIN-dpo-$DATASET-$METRIC \
-    --logging_dir llama-3b-$ORIGIN-dpo-$DATASET/log/$METRIC \
-    --model_name_or_path meta-llama/Llama-3.2-3B-Instruct \
+    --output_dir  qwen-r1-7b-$ORIGIN-dpo-$DATASET/$METRIC \
+    --dataset_name completions/$ORIGIN/qwen-r1-7b/$DATASET/$METRIC \
+    --run_name qwen-r1-7b-$ORIGIN-dpo-$DATASET-$METRIC \
+    --logging_dir qwen-r1-7b-$ORIGIN-dpo-$DATASET/log/$METRIC \
+    --model_name_or_path deepseek-ai/DeepSeek-R1-Distill-Qwen-7B \
     --learning_rate 1e-4 \
     --warmup_steps 150 \
     --num_train_epochs 1 \
