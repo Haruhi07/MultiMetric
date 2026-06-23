@@ -1,6 +1,4 @@
-# MultiMetric
-
-**Optimising Factual Consistency in Summarisation via Preference Learning from Multiple Imperfect Metrics**
+# Optimising Factual Consistency in Summarisation via Preference Learning from Multiple Imperfect Metrics
 
 [![EMNLP 2025](https://img.shields.io/badge/EMNLP-2025-blue)](#)
 [![License](https://img.shields.io/badge/License-MIT-green)](#)
@@ -50,36 +48,109 @@ Training with MultiMetric reduces key error types (Noun, Predicate, Quantifier) 
 
 ---
 
-## Repository Structure
+## File Overview
 
 ```
 MultiMetric/
-├── README.md              # This file
-├── figs/                  # Figures from the paper
-├── configs/               # Training configuration files
-├── src/
-│   ├── generate_pairs.py  # Generate lexically similar summary pairs
-│   ├── annotate.py        # Score pairs with metrics and resolve conflicts
-│   ├── train_dpo.py       # DPO training loop
-│   └── evaluate.py        # Evaluation with AlignScore, BARTScore, FactCC
-├── data/                  # Dataset scripts
-└── scripts/               # Reproduce experiments
+├── figs/                              # Paper figures
 ```
 
-> Note: The code is being prepared for release and will be populated shortly.
+### Core pipeline scripts
+
+| File | Purpose |
+|------|---------|
+| `sampling_with_different_strategy.py` | Generate lexically similar summary pairs with varied decoding |
+| `score_dataset.py` | Score summaries with SBERTScore + SummaC |
+| `sbert_score.py` | SBERTScore implementation |
+| `merge_dataset.py` | Merge scored pairs, remove conflicting labels |
+| `rl.py` | DPO / RL training (LLaMA, GPT-J, DeepSeek) |
+| `rl-bart.py` | DPO / RL training (BART) |
+| `generate_with_pipeline.py` | Generate summaries via transformers pipeline |
+| `llama_generate_with_pipeline.py` | LLaMA-specific generation (pipeline API) |
+| `gpt-j-sft.py` | Supervised fine-tuning for GPT-J |
+| `post_process.py` | Extract and format generated summaries |
+| `post_process_reasoning_output.py` | Parse chain-of-thought outputs (DeepSeek) |
+| `resave_final_checkpoint.py` | Re-save trained model checkpoints |
+| `check_bnb_install.py` | Verify bitsandbytes installation |
+
+### Shell scripts
+
+`run-*.sh` — Run each step with example arguments  
+`slurm-run-*.sh` — Run steps on Slurm-managed clusters
+
+### Configuration & data
+
+| File | Purpose |
+|------|---------|
+| `env_config_on_isambard.md` | Environment setup guide (Isambard cluster) |
+| `run-singularity-w-fakeroot.txt` | Singularity container setup |
+| `completions/gpt-j-6b-tldr-rlhf/` | Example generated completions |
 
 ---
 
-## Quick Start
+## Getting Started
+
+### Environment
+
+Key dependencies:
+- Python 3.10+, CUDA-compatible GPU
+- PyTorch (`pip install torch --index-url https://download.pytorch.org/whl/cu126`)
+- `transformers`, `datasets`, `accelerate`
+- `bitsandbytes` (may need local compilation — see [env_config_on_isambard.md](env_config_on_isambard.md))
+- `summac`, `sentence-transformers`
+
+For a full walkthrough, see [env_config_on_isambard.md](env_config_on_isambard.md) and [run-singularity-w-fakeroot.txt](run-singularity-w-fakeroot.txt).
+
+### Pipeline overview
+
+The pipeline runs in four stages:
+
+**1. Generate summary pairs**
+
+`sampling_with_different_strategy.py` generates lexically similar summary pairs by varying decoding strategies (e.g., beam search #1 vs #2, or beam search vs greedy).
 
 ```bash
-# Clone the repo
-git clone https://github.com/YOUR_USERNAME/MultiMetric.git
-cd MultiMetric
-
-# Install dependencies
-pip install -r requirements.txt   # coming soon
+bash run-sampling_with_different_strategy.sh
 ```
+
+For LLaMA / DeepSeek models:
+```bash
+bash run-llama_generate_with_pipeline.sh
+```
+
+**2. Score and label**
+
+`score_dataset.py` scores each summary with SBERTScore + SummaC. Only pairs where metrics agree on ranking are retained.
+
+```bash
+bash run-score_dataset.sh
+```
+
+**3. Merge and filter**
+
+`merge_dataset.py` merges scored pairs from different runs and removes conflicting labels.
+
+```bash
+bash run-merge_dataset.sh
+```
+
+**4. Train with DPO/RL**
+
+`rl.py` (LLaMA, GPT-J, DeepSeek) or `rl-bart.py` (BART) performs Direct Preference Optimization.
+
+```bash
+bash run-rl-bart.sh    # for BART
+bash run-rl.sh         # for LLaMA / GPT-J / DeepSeek
+```
+
+### Reproducing paper results
+
+1. **SFT** (for GPT-J only): `bash run-gpt-j-sft.sh`
+2. **Generate pairs**: `bash run-sampling_with_different_strategy.sh`
+3. **Score**: `bash run-score_dataset.sh`
+4. **Merge & filter**: `bash run-merge_dataset.sh`
+5. **Train**: `bash run-rl-bart.sh` or `bash run-rl.sh`
+6. **Post-process**: `bash run-post_process.sh`
 
 ---
 
@@ -88,11 +159,24 @@ pip install -r requirements.txt   # coming soon
 If you find this work useful for your research, please cite:
 
 ```bibtex
-@inproceedings{ye2025multimetric,
-  title={Optimising Factual Consistency in Summarisation via Preference Learning from Multiple Imperfect Metrics},
-  author={Ye, Yuxuan and Santos-Rodriguez, Raul and Simpson, Edwin},
-  booktitle={Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing},
-  year={2025}
+@inproceedings{ye-etal-2025-optimising,
+    title = "Optimising Factual Consistency in Summarisation via Preference Learning from Multiple Imperfect Metrics",
+    author = "Ye, Yuxuan  and
+      Santos-Rodriguez, Raul  and
+      Simpson, Edwin",
+    editor = "Christodoulopoulos, Christos  and
+      Chakraborty, Tanmoy  and
+      Rose, Carolyn  and
+      Peng, Violet",
+    booktitle = "Findings of the Association for Computational Linguistics: EMNLP 2025",
+    month = nov,
+    year = "2025",
+    address = "Suzhou, China",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2025.findings-emnlp.940/",
+    doi = "10.18653/v1/2025.findings-emnlp.940",
+    pages = "17342--17355",
+    ISBN = "979-8-89176-335-7",
 }
 ```
 
