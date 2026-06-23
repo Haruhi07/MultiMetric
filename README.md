@@ -1,7 +1,6 @@
 # Optimising Factual Consistency in Summarisation via Preference Learning from Multiple Imperfect Metrics
 
 [![EMNLP 2025](https://img.shields.io/badge/EMNLP-2025-blue)](#)
-[![License](https://img.shields.io/badge/License-MIT-green)](#)
 
 Code repository for the EMNLP 2025 paper *Optimising Factual Consistency in Summarisation via Preference Learning from Multiple Imperfect Metrics* by Yuxuan Ye, Raul Santos-Rodriguez, and Edwin Simpson (University of Bristol).
 
@@ -21,6 +20,15 @@ The method generalises across model architectures and scales — from BART to GP
 ![Method overview](figs/introduction.png)
 
 ---
+
+## Abstract
+
+Recent work on language models often applies reinforcement learning with human-annotated preference data to enhance specific capabilities, such as generating informative summaries. However, such data often focuses on overall preferences and overlooks factuality. Since collecting new annotations is costly, we propose to use automatic factuality metrics to obtain factuality preference labels. While individual factuality metrics are limited, their combination can effectively capture diverse factual errors.
+
+We introduce an automated training pipeline that improves summarisation factuality via preference optimisation. For each source document, we generate lexically similar summary pairs by varying decoding strategies, ensuring the model learns from minor factual errors. To avoid human annotation, we derive preference labels from weak factuality metrics filtering out conflicting cases to improve reliability. This results in a high-quality preference dataset constructed with only source documents.
+
+Experiments show consistent factuality gains across models, ranging from early encoder-decoder architectures to modern large language models, with smaller models reaching comparable factuality to larger ones.
+
 
 ## Key Results
 
@@ -179,13 +187,3 @@ If you find this work useful for your research, please cite:
     ISBN = "979-8-89176-335-7",
 }
 ```
-
----
-
-## Contact
-
-For questions or collaborations, please reach out to Yuxuan Ye at `yuxuan.ye@bristol.ac.uk`.
-
----
-
-**Intelligent Systems Laboratory, University of Bristol**
