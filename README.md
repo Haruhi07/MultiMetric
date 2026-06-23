@@ -6,6 +6,10 @@ Code repository for the EMNLP 2025 paper *Optimising Factual Consistency in Summ
 
 ---
 
+> **Abstract:** Reinforcement learning with evaluation metrics as rewards is widely used to enhance specific capabilities of language models. However, for tasks such as factually consistent summarisation, existing metrics remain underdeveloped, limiting their effectiveness as signals for shaping model behaviour.While individual factuality metrics are unreliable, their combination can more effectively capture diverse factual errors. We leverage this insight to introduce an automated training pipeline that improves factual consistency in summaries by aggregating scores from different weak metrics. Our approach avoids the need for complex reward shaping by mapping scores to preferences and filtering out cases with high disagreement between metrics. For each source document, we generate lexically similar summary pairs by varying decoding strategies, enabling the model to learn from factual differences caused by subtle lexical differences. This approach constructs a high-quality preference dataset using only source documents.Experiments demonstrate consistent factuality gains across models, ranging from early encoder-decoder architectures to modern large language models, with smaller models reaching comparable factuality to larger ones.
+
+---
+
 ## Overview
 
 MultiMetric is a fully automated training pipeline that improves factual consistency in text summarisation **without requiring any human annotations or reference summaries**. It works by:
@@ -20,15 +24,6 @@ The method generalises across model architectures and scales — from BART to GP
 ![Method overview](figs/introduction.png)
 
 ---
-
-## Abstract
-
-Recent work on language models often applies reinforcement learning with human-annotated preference data to enhance specific capabilities, such as generating informative summaries. However, such data often focuses on overall preferences and overlooks factuality. Since collecting new annotations is costly, we propose to use automatic factuality metrics to obtain factuality preference labels. While individual factuality metrics are limited, their combination can effectively capture diverse factual errors.
-
-We introduce an automated training pipeline that improves summarisation factuality via preference optimisation. For each source document, we generate lexically similar summary pairs by varying decoding strategies, ensuring the model learns from minor factual errors. To avoid human annotation, we derive preference labels from weak factuality metrics filtering out conflicting cases to improve reliability. This results in a high-quality preference dataset constructed with only source documents.
-
-Experiments show consistent factuality gains across models, ranging from early encoder-decoder architectures to modern large language models, with smaller models reaching comparable factuality to larger ones.
-
 
 ## Key Results
 
